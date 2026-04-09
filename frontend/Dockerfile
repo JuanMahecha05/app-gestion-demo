@@ -12,7 +12,7 @@ ENV VITE_AZURE_CLIENT_ID=$VITE_AZURE_CLIENT_ID
 ENV VITE_AZURE_REDIRECT_URI=$VITE_AZURE_REDIRECT_URI
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install --include=optional
 
 COPY . .
 RUN npm run build
