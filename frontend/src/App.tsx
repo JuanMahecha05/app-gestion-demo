@@ -18,6 +18,7 @@ import {
   getHealth,
   getMe,
   getStatsOverview,
+  getFxConfig,
   listAdminUsers,
   listConsultants,
   listExpenses,
@@ -29,6 +30,7 @@ import {
   updateConsultant,
   updateExpense,
   updateForecast,
+  updateFxConfig,
   updateProject,
   type AdminUser,
   type AppRole,
@@ -73,6 +75,10 @@ function numberish(value: string | null | undefined) {
   if (!value) return 0;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatPlainMoney(value: number) {
+  return Number(value).toLocaleString("es-CO", { maximumFractionDigits: 2 });
 }
 
 function toDateInput(value: string) {
@@ -175,6 +181,11 @@ function App() {
     from: "",
     to: "",
   });
+  const [fxConfig, setFxConfig] = useState({
+    currencyA: "USD",
+    currencyB: "COP",
+    rate: "4000",
+  });
 
   const [projectForm, setProjectForm] = useState({
     name: "",
@@ -270,6 +281,43 @@ function App() {
       return project.name.toLowerCase().includes(term) || project.company.toLowerCase().includes(term);
     });
   }, [projects, projectSearch]);
+
+  function dualMoneyValue(amount: number, currency: string) {
+    const source = currency;
+    const a = fxConfig.currencyA;
+    const b = fxConfig.currencyB;
+    const rate = numberish(fxConfig.rate);
+
+    if (!rate || rate <= 0) {
+      return {
+        primary: `${source} ${formatPlainMoney(amount)}`,
+        secondary: "TRM no definida",
+        muted: true,
+      };
+    }
+
+    if (source === a) {
+      return {
+        primary: `${a} ${formatPlainMoney(amount)}`,
+        secondary: `${b} ${formatPlainMoney(amount * rate)}`,
+        muted: false,
+      };
+    }
+
+    if (source === b) {
+      return {
+        primary: `${b} ${formatPlainMoney(amount)}`,
+        secondary: `${a} ${formatPlainMoney(amount / rate)}`,
+        muted: false,
+      };
+    }
+
+    return {
+      primary: `${source} ${formatPlainMoney(amount)}`,
+      secondary: `No convertible (${a}↔${b})`,
+      muted: true,
+    };
+  }
 
   const companies = useMemo(() => {
     const unique = new Set(projects.map((project) => project.company).filter(Boolean));
@@ -413,7 +461,7 @@ function App() {
   async function loadDomainData(user: AuthUser | null) {
     const userPermissions = user?.permissions ?? [];
 
-    const [projectsResult, consultantsResult, timeEntriesResult, expensesResult, forecastsResult, statsResult, adminUsersResult] =
+    const [projectsResult, consultantsResult, timeEntriesResult, expensesResult, forecastsResult, statsResult, adminUsersResult, fxConfigResult] =
       await Promise.all([
         userPermissions.includes("projects:read") ? listProjects() : Promise.resolve([]),
         userPermissions.includes("consultants:read") ? listConsultants() : Promise.resolve([]),
@@ -422,6 +470,7 @@ function App() {
         userPermissions.includes("forecasts:read") ? listForecasts() : Promise.resolve([]),
         userPermissions.includes("stats:read") ? getStatsOverview() : Promise.resolve(null),
         userPermissions.includes("users:manage") ? listAdminUsers() : Promise.resolve([]),
+        userPermissions.includes("stats:read") ? getFxConfig() : Promise.resolve(null),
       ]);
 
     setProjects(projectsResult);
@@ -431,6 +480,36 @@ function App() {
     setForecasts(forecastsResult);
     setStats(statsResult);
     setAdminUsers(adminUsersResult);
+    if (fxConfigResult) {
+      setFxConfig({
+        currencyA: fxConfigResult.baseCode,
+        currencyB: fxConfigResult.quoteCode,
+        rate: String(fxConfigResult.rate),
+      });
+    }
+  }
+
+  async function saveFxConfiguration() {
+    try {
+      const rate = numberish(fxConfig.rate);
+      if (rate <= 0) {
+        throw new Error("La TRM debe ser mayor a 0");
+      }
+
+      const saved = await updateFxConfig({
+        baseCode: fxConfig.currencyA,
+        quoteCode: fxConfig.currencyB,
+        rate,
+      });
+
+      setFxConfig({
+        currencyA: saved.baseCode,
+        currencyB: saved.quoteCode,
+        rate: String(saved.rate),
+      });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "No se pudo guardar configuración FX");
+    }
   }
 
   async function bootstrap() {
@@ -900,6 +979,38 @@ function App() {
                 Limpiar filtros
               </button>
             </div>
+            <div className="form-grid fx-grid">
+              <select
+                value={fxConfig.currencyA}
+                onChange={(event) => setFxConfig((prev) => ({ ...prev, currencyA: event.target.value }))}
+              >
+                {currencyOptions.map((currency) => (
+                  <option key={`a-${currency}`} value={currency}>{`Moneda A: ${currency}`}</option>
+                ))}
+              </select>
+              <select
+                value={fxConfig.currencyB}
+                onChange={(event) => setFxConfig((prev) => ({ ...prev, currencyB: event.target.value }))}
+              >
+                {currencyOptions.map((currency) => (
+                  <option key={`b-${currency}`} value={currency}>{`Moneda B: ${currency}`}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                step="0.0001"
+                value={fxConfig.rate}
+                onChange={(event) => setFxConfig((prev) => ({ ...prev, rate: event.target.value }))}
+                placeholder={`TRM ${fxConfig.currencyA} -> ${fxConfig.currencyB}`}
+              />
+            </div>
+            <div className="inline-actions">
+              <button type="button" onClick={() => void saveFxConfiguration()}>
+                Guardar TRM
+              </button>
+            </div>
+            <p className="fx-note">Conversión activa: {`${fxConfig.currencyA} -> ${fxConfig.currencyB}`}</p>
           </article>
 
           <section className="grid dashboard-grid">
@@ -929,16 +1040,21 @@ function App() {
                   {dashboardProjectSummary.map((row) => {
                     const tone = row.projectedPct > 100 ? "error" : row.projectedPct > 90 ? "warn" : "ok";
                     const statusLabel = row.projectedPct > 100 ? "Se pasa" : row.projectedPct > 90 ? "Riesgo" : "OK";
+                    const budgetDual = dualMoneyValue(numberish(row.project.budget), row.project.currency);
+                    const spentDual = dualMoneyValue(row.spent, row.project.currency);
+                    const remainingDual = dualMoneyValue(row.remaining, row.project.currency);
+                    const projectedDual = dualMoneyValue(row.projectedCost, row.project.currency);
+                    const projectedTotalDual = dualMoneyValue(row.projectedTotal, row.project.currency);
 
                     return (
                       <tr key={row.project.id}>
                         <td>{row.project.company}</td>
                         <td>{row.project.name}</td>
-                        <td>{money(numberish(row.project.budget), row.project.currency)}</td>
-                        <td>{money(row.spent, row.project.currency)}</td>
-                        <td>{money(row.remaining, row.project.currency)}</td>
-                        <td>{money(row.projectedCost, row.project.currency)}</td>
-                        <td>{`${money(row.projectedTotal, row.project.currency)} (${row.projectedPct.toFixed(1)}%)`}</td>
+                        <td><div className="money-dual"><span>{budgetDual.primary}</span><small className={budgetDual.muted ? "muted" : ""}>{budgetDual.secondary}</small></div></td>
+                        <td><div className="money-dual"><span>{spentDual.primary}</span><small className={spentDual.muted ? "muted" : ""}>{spentDual.secondary}</small></div></td>
+                        <td><div className="money-dual"><span>{remainingDual.primary}</span><small className={remainingDual.muted ? "muted" : ""}>{remainingDual.secondary}</small></div></td>
+                        <td><div className="money-dual"><span>{projectedDual.primary}</span><small className={projectedDual.muted ? "muted" : ""}>{projectedDual.secondary}</small></div></td>
+                        <td><div className="money-dual"><span>{`${projectedTotalDual.primary} (${row.projectedPct.toFixed(1)}%)`}</span><small className={projectedTotalDual.muted ? "muted" : ""}>{projectedTotalDual.secondary}</small></div></td>
                         <td><span className={`pill ${tone}`}>{statusLabel}</span></td>
                       </tr>
                     );
@@ -1110,7 +1226,7 @@ function App() {
               </form>
             )}
           </article>
-          <article className="card"><h3>Listado de gastos</h3><div className="table-wrap"><table><thead><tr><th>Proyecto</th><th>Categoría</th><th>Monto</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>{expenses.map((expense) => (<tr key={expense.id}><td>{expense.project.name}</td><td>{expense.category}</td><td>{money(numberish(expense.amount), expense.currency)}</td><td>{new Date(expense.expenseDate).toLocaleDateString()}</td><td>{can("expenses:write") && (<div className="inline-actions"><button type="button" onClick={() => void editExpense(expense)}>Editar</button><button type="button" className="ghost" onClick={() => void removeExpense(expense)}>Eliminar</button></div>)}</td></tr>))}</tbody></table></div></article>
+          <article className="card"><h3>Listado de gastos</h3><div className="table-wrap"><table><thead><tr><th>Proyecto</th><th>Categoría</th><th>Monto</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>{expenses.map((expense) => { const dual = dualMoneyValue(numberish(expense.amount), expense.currency); return (<tr key={expense.id}><td>{expense.project.name}</td><td>{expense.category}</td><td><div className="money-dual"><span>{dual.primary}</span><small className={dual.muted ? "muted" : ""}>{dual.secondary}</small></div></td><td>{new Date(expense.expenseDate).toLocaleDateString()}</td><td>{can("expenses:write") && (<div className="inline-actions"><button type="button" onClick={() => void editExpense(expense)}>Editar</button><button type="button" className="ghost" onClick={() => void removeExpense(expense)}>Eliminar</button></div>)}</td></tr>); })}</tbody></table></div></article>
         </section>
       )}
 
@@ -1140,7 +1256,7 @@ function App() {
               </form>
             )}
           </article>
-          <article className="card"><h3>Listado de proyecciones</h3><div className="table-wrap"><table><thead><tr><th>Proyecto</th><th>Consultor</th><th>Periodo</th><th>Horas</th><th>Costo</th><th>Acciones</th></tr></thead><tbody>{forecasts.map((forecast) => (<tr key={forecast.id}><td>{forecast.project.name}</td><td>{forecast.consultant.fullName}</td><td>{forecast.period}</td><td>{numberish(forecast.hoursProjected).toFixed(2)}</td><td>{money(forecast.projectedCost || 0, forecast.project.currency)}</td><td>{can("forecasts:write") && (<div className="inline-actions"><button type="button" onClick={() => void editForecast(forecast)}>Editar</button><button type="button" className="ghost" onClick={() => void removeForecast(forecast)}>Eliminar</button></div>)}</td></tr>))}</tbody></table></div></article>
+          <article className="card"><h3>Listado de proyecciones</h3><div className="table-wrap"><table><thead><tr><th>Proyecto</th><th>Consultor</th><th>Periodo</th><th>Horas</th><th>Costo</th><th>Acciones</th></tr></thead><tbody>{forecasts.map((forecast) => { const dual = dualMoneyValue(forecast.projectedCost || 0, forecast.project.currency); return (<tr key={forecast.id}><td>{forecast.project.name}</td><td>{forecast.consultant.fullName}</td><td>{forecast.period}</td><td>{numberish(forecast.hoursProjected).toFixed(2)}</td><td><div className="money-dual"><span>{dual.primary}</span><small className={dual.muted ? "muted" : ""}>{dual.secondary}</small></div></td><td>{can("forecasts:write") && (<div className="inline-actions"><button type="button" onClick={() => void editForecast(forecast)}>Editar</button><button type="button" className="ghost" onClick={() => void removeForecast(forecast)}>Eliminar</button></div>)}</td></tr>); })}</tbody></table></div></article>
         </section>
       )}
 
