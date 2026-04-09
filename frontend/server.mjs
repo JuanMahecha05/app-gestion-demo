@@ -30,11 +30,37 @@ if (!existsSync(indexFile)) {
 }
 
 function renderEnvScript() {
+  const pickFirstEnv = (...keys) => {
+    for (const key of keys) {
+      const value = process.env[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+    return '';
+  };
+
   const config = {
-    VITE_API_URL: process.env.VITE_API_URL || '',
-    VITE_AZURE_TENANT_ID: process.env.VITE_AZURE_TENANT_ID || '',
-    VITE_AZURE_CLIENT_ID: process.env.VITE_AZURE_CLIENT_ID || '',
-    VITE_AZURE_REDIRECT_URI: process.env.VITE_AZURE_REDIRECT_URI || '',
+    VITE_API_URL: pickFirstEnv('VITE_API_URL', 'API_URL', 'BACKEND_URL'),
+    VITE_AZURE_TENANT_ID: pickFirstEnv(
+      'VITE_AZURE_TENANT_ID',
+      'AZURE_TENANT_ID',
+      'ENTRA_TENANT_ID',
+      'AAD_TENANT_ID',
+      'VITE_AZURE_TENANT'
+    ),
+    VITE_AZURE_CLIENT_ID: pickFirstEnv(
+      'VITE_AZURE_CLIENT_ID',
+      'AZURE_CLIENT_ID',
+      'ENTRA_CLIENT_ID',
+      'AAD_CLIENT_ID'
+    ),
+    VITE_AZURE_REDIRECT_URI: pickFirstEnv(
+      'VITE_AZURE_REDIRECT_URI',
+      'AZURE_REDIRECT_URI',
+      'ENTRA_REDIRECT_URI',
+      'AAD_REDIRECT_URI'
+    ),
   };
 
   return `window.__APP_CONFIG__ = ${JSON.stringify(config)};`;
