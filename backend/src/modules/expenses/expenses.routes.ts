@@ -1,5 +1,7 @@
+import { AppRole } from "@prisma/client";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { authenticate, authorize } from "../../auth/guard.js";
 import { prisma } from "../../infra/prisma.js";
 
 const expensePayloadSchema = z.object({
@@ -18,16 +20,27 @@ const expensePayloadSchema = z.object({
 const idParamsSchema = z.object({ id: z.string().min(1) });
 
 export async function expensesRoutes(app: FastifyInstance) {
-  app.get("/", async () => {
+  app.get(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.FINANCE, AppRole.VIEWER])],
+    },
+    async () => {
     const expenses = await prisma.expense.findMany({
       include: { project: true },
       orderBy: { expenseDate: "desc" },
     });
 
-    return { data: expenses };
-  });
+      return { data: expenses };
+    },
+  );
 
-  app.post("/", async (request, reply) => {
+  app.post(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.FINANCE])],
+    },
+    async (request, reply) => {
     const payload = expensePayloadSchema.parse(request.body);
 
     const project = await prisma.project.findUnique({ where: { id: payload.projectId } });
@@ -39,10 +52,16 @@ export async function expensesRoutes(app: FastifyInstance) {
       data: payload,
     });
 
-    return reply.status(201).send({ data: expense });
-  });
+      return reply.status(201).send({ data: expense });
+    },
+  );
 
-  app.put("/:id", async (request, reply) => {
+  app.put(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.FINANCE])],
+    },
+    async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
     const payload = expensePayloadSchema.parse(request.body);
 
@@ -61,10 +80,16 @@ export async function expensesRoutes(app: FastifyInstance) {
       data: payload,
     });
 
-    return { data: expense };
-  });
+      return { data: expense };
+    },
+  );
 
-  app.delete("/:id", async (request, reply) => {
+  app.delete(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.FINANCE])],
+    },
+    async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
 
     const existing = await prisma.expense.findUnique({ where: { id } });
@@ -72,7 +97,8 @@ export async function expensesRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "Expense not found" });
     }
 
-    await prisma.expense.delete({ where: { id } });
-    return reply.status(204).send();
-  });
+      await prisma.expense.delete({ where: { id } });
+      return reply.status(204).send();
+    },
+  );
 }

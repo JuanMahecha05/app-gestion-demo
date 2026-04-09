@@ -15,6 +15,44 @@
   margin-bottom: 1.4rem;
 }
 
+.hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logo-slot {
+  min-width: 76px;
+  width: 76px;
+  height: 76px;
+  border-radius: 16px;
+  border: 1px dashed #f0b07d;
+  background: linear-gradient(135deg, #fff3e7, #fff7ef);
+  color: #9a4f0f;
+  font-size: 0.76rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.3rem;
+}
+
+.auth-shell {
+  display: grid;
+  place-items: center;
+}
+
+.auth-card {
+  width: min(480px, 100%);
+  border: 1px solid #f4d4b6;
+  border-radius: 18px;
+  padding: 1.2rem;
+  background: #fff;
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+}
+
 .hero h1 {
   margin: 0;
   font-size: clamp(1.8rem, 2.6vw, 2.4rem);
@@ -82,6 +120,7 @@
   border-radius: 16px;
   padding: 1rem;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+  min-width: 0;
 }
 
 .card h3 {
@@ -104,6 +143,10 @@
 .form-grid {
   display: grid;
   gap: 0.7rem;
+}
+
+.form-grid > * {
+  min-width: 0;
 }
 
 input,
@@ -156,6 +199,7 @@ button.ghost {
 .inline-actions {
   display: flex;
   gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .check {

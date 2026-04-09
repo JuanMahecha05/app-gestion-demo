@@ -13,6 +13,14 @@ enum TimeEntryStatus {
   REJECTED
 }
 
+enum AppRole {
+  ADMIN
+  PM
+  CONSULTANT
+  FINANCE
+  VIEWER
+}
+
 model Project {
   id          String   @id @default(cuid())
   name        String
@@ -111,4 +119,37 @@ model FxConfig {
   rate      Decimal  @db.Decimal(18, 6)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  displayName  String
+  microsoftOid String?    @unique
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  roles        UserRole[]
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  name      AppRole    @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  users     UserRole[]
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
 }

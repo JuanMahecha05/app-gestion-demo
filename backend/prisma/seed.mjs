@@ -1,8 +1,53 @@
-import { PrismaClient, TimeEntryStatus } from "@prisma/client";
+import "dotenv/config";
+import { AppRole, PrismaClient, TimeEntryStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const adminEmail = (process.env.ADMIN_EMAIL || "admin@synaptica.local").toLowerCase();
+
+  await Promise.all(
+    Object.values(AppRole).map((role) =>
+      prisma.role.upsert({
+        where: { name: role },
+        update: {},
+        create: { name: role },
+      }),
+    ),
+  );
+
+  const adminRole = await prisma.role.findUnique({ where: { name: AppRole.ADMIN } });
+  if (!adminRole) {
+    throw new Error("ADMIN role was not created");
+  }
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      displayName: "Administrador",
+      active: true,
+    },
+    create: {
+      email: adminEmail,
+      displayName: "Administrador",
+      active: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: adminUser.id,
+        roleId: adminRole.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      roleId: adminRole.id,
+    },
+  });
+
   await prisma.timeEntry.deleteMany();
   await prisma.expense.deleteMany();
   await prisma.forecast.deleteMany();

@@ -1,5 +1,7 @@
+import { AppRole } from "@prisma/client";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { authenticate, authorize } from "../../auth/guard.js";
 import { prisma } from "../../infra/prisma.js";
 
 const projectPayloadSchema = z.object({
@@ -32,7 +34,12 @@ function ensureDateRange(startDate: Date, endDate: Date) {
 }
 
 export async function projectsRoutes(app: FastifyInstance) {
-  app.get("/", async (request) => {
+  app.get(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.CONSULTANT, AppRole.FINANCE, AppRole.VIEWER])],
+    },
+    async (request) => {
     const query = listProjectsQuerySchema.parse(request.query);
 
     const projects = await prisma.project.findMany({
@@ -49,10 +56,16 @@ export async function projectsRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "desc" },
     });
 
-    return { data: projects };
-  });
+      return { data: projects };
+    },
+  );
 
-  app.post("/", async (request, reply) => {
+  app.post(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const body = projectPayloadSchema.parse(request.body);
 
     try {
@@ -74,10 +87,16 @@ export async function projectsRoutes(app: FastifyInstance) {
       },
     });
 
-    return reply.status(201).send({ data: project });
-  });
+      return reply.status(201).send({ data: project });
+    },
+  );
 
-  app.get("/:id", async (request, reply) => {
+  app.get(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.CONSULTANT, AppRole.FINANCE, AppRole.VIEWER])],
+    },
+    async (request, reply) => {
     const { id } = projectParamsSchema.parse(request.params);
 
     const project = await prisma.project.findUnique({ where: { id } });
@@ -85,10 +104,16 @@ export async function projectsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "Project not found" });
     }
 
-    return { data: project };
-  });
+      return { data: project };
+    },
+  );
 
-  app.put("/:id", async (request, reply) => {
+  app.put(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = projectParamsSchema.parse(request.params);
     const body = projectPayloadSchema.parse(request.body);
 
@@ -117,10 +142,16 @@ export async function projectsRoutes(app: FastifyInstance) {
       },
     });
 
-    return { data: project };
-  });
+      return { data: project };
+    },
+  );
 
-  app.delete("/:id", async (request, reply) => {
+  app.delete(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = projectParamsSchema.parse(request.params);
 
     const existing = await prisma.project.findUnique({ where: { id } });
@@ -128,7 +159,8 @@ export async function projectsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "Project not found" });
     }
 
-    await prisma.project.delete({ where: { id } });
-    return reply.status(204).send();
-  });
+      await prisma.project.delete({ where: { id } });
+      return reply.status(204).send();
+    },
+  );
 }

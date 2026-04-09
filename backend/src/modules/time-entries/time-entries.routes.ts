@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { TimeEntryStatus } from "@prisma/client";
+import { AppRole, TimeEntryStatus } from "@prisma/client";
 import { z } from "zod";
+import { authenticate, authorize } from "../../auth/guard.js";
 import { prisma } from "../../infra/prisma.js";
 
 const timeEntryPayloadSchema = z.object({
@@ -24,7 +25,12 @@ const rejectPayloadSchema = z.object({
 const idParamsSchema = z.object({ id: z.string().min(1) });
 
 export async function timeEntriesRoutes(app: FastifyInstance) {
-  app.get("/", async () => {
+  app.get(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.CONSULTANT, AppRole.VIEWER])],
+    },
+    async () => {
     const entries = await prisma.timeEntry.findMany({
       include: {
         project: true,
@@ -33,10 +39,16 @@ export async function timeEntriesRoutes(app: FastifyInstance) {
       orderBy: { workDate: "desc" },
     });
 
-    return { data: entries };
-  });
+      return { data: entries };
+    },
+  );
 
-  app.post("/", async (request, reply) => {
+  app.post(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.CONSULTANT])],
+    },
+    async (request, reply) => {
     const payload = timeEntryPayloadSchema.parse(request.body);
 
     const [project, consultant] = await Promise.all([
@@ -63,10 +75,16 @@ export async function timeEntriesRoutes(app: FastifyInstance) {
       },
     });
 
-    return reply.status(201).send({ data: entry });
-  });
+      return reply.status(201).send({ data: entry });
+    },
+  );
 
-  app.patch("/:id/approve", async (request, reply) => {
+  app.patch(
+    "/:id/approve",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
     const payload = reviewPayloadSchema.parse(request.body);
 
@@ -89,10 +107,16 @@ export async function timeEntriesRoutes(app: FastifyInstance) {
       },
     });
 
-    return { data: entry };
-  });
+      return { data: entry };
+    },
+  );
 
-  app.patch("/:id/reject", async (request, reply) => {
+  app.patch(
+    "/:id/reject",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
     const payload = rejectPayloadSchema.parse(request.body);
 
@@ -115,10 +139,16 @@ export async function timeEntriesRoutes(app: FastifyInstance) {
       },
     });
 
-    return { data: entry };
-  });
+      return { data: entry };
+    },
+  );
 
-  app.delete("/:id", async (request, reply) => {
+  app.delete(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = idParamsSchema.parse(request.params);
 
     const existing = await prisma.timeEntry.findUnique({ where: { id } });
@@ -126,7 +156,8 @@ export async function timeEntriesRoutes(app: FastifyInstance) {
       return reply.status(404).send({ message: "Time entry not found" });
     }
 
-    await prisma.timeEntry.delete({ where: { id } });
-    return reply.status(204).send();
-  });
+      await prisma.timeEntry.delete({ where: { id } });
+      return reply.status(204).send();
+    },
+  );
 }

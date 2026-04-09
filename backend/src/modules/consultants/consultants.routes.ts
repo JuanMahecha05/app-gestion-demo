@@ -1,5 +1,7 @@
+import { AppRole } from "@prisma/client";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { authenticate, authorize } from "../../auth/guard.js";
 import { prisma } from "../../infra/prisma.js";
 
 const consultantPayloadSchema = z.object({
@@ -13,15 +15,26 @@ const consultantPayloadSchema = z.object({
 const consultantParamsSchema = z.object({ id: z.string().min(1) });
 
 export async function consultantsRoutes(app: FastifyInstance) {
-  app.get("/", async () => {
+  app.get(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.CONSULTANT, AppRole.FINANCE, AppRole.VIEWER])],
+    },
+    async () => {
     const consultants = await prisma.consultant.findMany({
       orderBy: { createdAt: "desc" },
     });
 
     return { data: consultants };
-  });
+    },
+  );
 
-  app.post("/", async (request, reply) => {
+  app.post(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const payload = consultantPayloadSchema.parse(request.body);
 
     const consultant = await prisma.consultant.create({
@@ -34,10 +47,16 @@ export async function consultantsRoutes(app: FastifyInstance) {
       },
     });
 
-    return reply.status(201).send({ data: consultant });
-  });
+      return reply.status(201).send({ data: consultant });
+    },
+  );
 
-  app.put("/:id", async (request, reply) => {
+  app.put(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = consultantParamsSchema.parse(request.params);
     const payload = consultantPayloadSchema.parse(request.body);
 
@@ -57,10 +76,16 @@ export async function consultantsRoutes(app: FastifyInstance) {
       },
     });
 
-    return { data: consultant };
-  });
+      return { data: consultant };
+    },
+  );
 
-  app.delete("/:id", async (request, reply) => {
+  app.delete(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
     const { id } = consultantParamsSchema.parse(request.params);
 
     const existing = await prisma.consultant.findUnique({ where: { id } });
@@ -77,7 +102,8 @@ export async function consultantsRoutes(app: FastifyInstance) {
         .send({ message: "Cannot delete consultant with related time entries or forecasts" });
     }
 
-    await prisma.consultant.delete({ where: { id } });
-    return reply.status(204).send();
-  });
+      await prisma.consultant.delete({ where: { id } });
+      return reply.status(204).send();
+    },
+  );
 }

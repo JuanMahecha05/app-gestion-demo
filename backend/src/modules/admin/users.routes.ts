@@ -1,0 +1,185 @@
+import { AppRole } from "@prisma/client";
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+import { authenticate, authorize } from "../../auth/guard.js";
+import { prisma } from "../../infra/prisma.js";
+
+const userPayloadSchema = z.object({
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  displayName: z.string().trim().min(1),
+  microsoftOid: z.string().trim().min(1).optional(),
+  active: z.coerce.boolean().default(true),
+  roles: z.array(z.nativeEnum(AppRole)).min(1),
+});
+
+const userUpdateSchema = z.object({
+  displayName: z.string().trim().min(1).optional(),
+  microsoftOid: z.string().trim().min(1).optional(),
+  active: z.coerce.boolean().optional(),
+  roles: z.array(z.nativeEnum(AppRole)).min(1).optional(),
+});
+
+const paramsSchema = z.object({ id: z.string().min(1) });
+
+async function ensureRoles() {
+  await Promise.all(
+    Object.values(AppRole).map((role) =>
+      prisma.role.upsert({
+        where: { name: role },
+        update: {},
+        create: { name: role },
+      }),
+    ),
+  );
+}
+
+export async function adminUsersRoutes(app: FastifyInstance) {
+  app.get(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN])],
+    },
+    async () => {
+      const users = await prisma.user.findMany({
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return {
+        data: users.map((user) => ({
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          microsoftOid: user.microsoftOid,
+          active: user.active,
+          roles: user.roles.map((item) => item.role.name),
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        })),
+      };
+    },
+  );
+
+  app.post(
+    "/",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN])],
+    },
+    async (request, reply) => {
+      await ensureRoles();
+      const payload = userPayloadSchema.parse(request.body);
+
+      const existing = await prisma.user.findUnique({ where: { email: payload.email } });
+      if (existing) {
+        return reply.status(409).send({ message: "User email already exists" });
+      }
+
+      const roleRecords = await prisma.role.findMany({
+        where: {
+          name: { in: payload.roles },
+        },
+      });
+
+      const user = await prisma.user.create({
+        data: {
+          email: payload.email,
+          displayName: payload.displayName,
+          microsoftOid: payload.microsoftOid,
+          active: payload.active,
+          roles: {
+            create: roleRecords.map((role) => ({
+              roleId: role.id,
+            })),
+          },
+        },
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      return reply.status(201).send({
+        data: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          microsoftOid: user.microsoftOid,
+          active: user.active,
+          roles: user.roles.map((item) => item.role.name),
+        },
+      });
+    },
+  );
+
+  app.patch(
+    "/:id",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN])],
+    },
+    async (request, reply) => {
+      await ensureRoles();
+      const { id } = paramsSchema.parse(request.params);
+      const payload = userUpdateSchema.parse(request.body);
+
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return reply.status(404).send({ message: "User not found" });
+      }
+
+      if (payload.roles) {
+        const roleRecords = await prisma.role.findMany({
+          where: {
+            name: { in: payload.roles },
+          },
+        });
+
+        await prisma.userRole.deleteMany({ where: { userId: id } });
+        await prisma.userRole.createMany({
+          data: roleRecords.map((role) => ({
+            userId: id,
+            roleId: role.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      const updated = await prisma.user.update({
+        where: { id },
+        data: {
+          displayName: payload.displayName,
+          microsoftOid: payload.microsoftOid,
+          active: payload.active,
+        },
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+
+      return {
+        data: {
+          id: updated.id,
+          email: updated.email,
+          displayName: updated.displayName,
+          microsoftOid: updated.microsoftOid,
+          active: updated.active,
+          roles: updated.roles.map((item) => item.role.name),
+          createdAt: updated.createdAt,
+          updatedAt: updated.updatedAt,
+        },
+      };
+    },
+  );
+}

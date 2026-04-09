@@ -4,6 +4,29 @@ type ApiEnvelope<T> = { data: T };
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+let accessToken: string | null = null;
+
+export type AppRole = "ADMIN" | "PM" | "CONSULTANT" | "FINANCE" | "VIEWER";
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  roles: AppRole[];
+  permissions: string[];
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  microsoftOid: string | null;
+  active: boolean;
+  roles: AppRole[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type HealthResponse = {
   ok: boolean;
   service: string;
@@ -111,6 +134,10 @@ function ensureApiUrl() {
   return env.apiUrl;
 }
 
+export function setApiAccessToken(token: string | null) {
+  accessToken = token;
+}
+
 async function request<T>(path: string, method: HttpMethod = "GET", body?: unknown): Promise<T> {
   const baseUrl = ensureApiUrl();
 
@@ -118,19 +145,23 @@ async function request<T>(path: string, method: HttpMethod = "GET", body?: unkno
     method,
     headers: {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
     const fallbackMessage = `Request failed with status ${response.status}`;
+    let errorMessage = fallbackMessage;
 
     try {
       const errorBody = (await response.json()) as { message?: string };
-      throw new Error(errorBody.message || fallbackMessage);
+      errorMessage = errorBody.message || fallbackMessage;
     } catch {
-      throw new Error(fallbackMessage);
+      errorMessage = fallbackMessage;
     }
+
+    throw new Error(errorMessage);
   }
 
   if (response.status === 204) {
@@ -142,6 +173,40 @@ async function request<T>(path: string, method: HttpMethod = "GET", body?: unkno
 
 export async function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/health");
+}
+
+export async function getMe(): Promise<AuthUser> {
+  const response = await request<ApiEnvelope<AuthUser>>("/api/auth/me");
+  return response.data;
+}
+
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  const response = await request<ApiEnvelope<AdminUser[]>>("/api/admin/users");
+  return response.data;
+}
+
+export async function createAdminUser(payload: {
+  email: string;
+  displayName: string;
+  microsoftOid?: string;
+  active: boolean;
+  roles: AppRole[];
+}): Promise<AdminUser> {
+  const response = await request<ApiEnvelope<AdminUser>>("/api/admin/users", "POST", payload);
+  return response.data;
+}
+
+export async function updateAdminUser(
+  id: string,
+  payload: {
+    displayName?: string;
+    microsoftOid?: string;
+    active?: boolean;
+    roles?: AppRole[];
+  },
+): Promise<AdminUser> {
+  const response = await request<ApiEnvelope<AdminUser>>(`/api/admin/users/${id}`, "PATCH", payload);
+  return response.data;
 }
 
 export async function listProjects(): Promise<Project[]> {

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { TimeEntryStatus } from "@prisma/client";
+import { AppRole, TimeEntryStatus } from "@prisma/client";
 import { z } from "zod";
+import { authenticate, authorize } from "../../auth/guard.js";
 import { prisma } from "../../infra/prisma.js";
 
 const statsQuerySchema = z.object({
@@ -19,7 +20,12 @@ const statsQuerySchema = z.object({
 });
 
 export async function statsRoutes(app: FastifyInstance) {
-  app.get("/overview", async (request) => {
+  app.get(
+    "/overview",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM, AppRole.CONSULTANT, AppRole.FINANCE, AppRole.VIEWER])],
+    },
+    async (request) => {
     const query = statsQuerySchema.parse(request.query);
 
     const projects = await prisma.project.findMany({
@@ -70,16 +76,17 @@ export async function statsRoutes(app: FastifyInstance) {
       };
     });
 
-    return {
-      data: {
-        projects: byProject,
-        totals: {
-          budget: byProject.reduce((acc, item) => acc + item.budget, 0),
-          spent: byProject.reduce((acc, item) => acc + item.spent, 0),
-          totalHours: byProject.reduce((acc, item) => acc + item.totalHours, 0),
-          approvedHours: byProject.reduce((acc, item) => acc + item.approvedHours, 0),
+      return {
+        data: {
+          projects: byProject,
+          totals: {
+            budget: byProject.reduce((acc, item) => acc + item.budget, 0),
+            spent: byProject.reduce((acc, item) => acc + item.spent, 0),
+            totalHours: byProject.reduce((acc, item) => acc + item.totalHours, 0),
+            approvedHours: byProject.reduce((acc, item) => acc + item.approvedHours, 0),
+          },
         },
-      },
-    };
-  });
+      };
+    },
+  );
 }
