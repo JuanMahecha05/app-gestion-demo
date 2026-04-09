@@ -67,6 +67,11 @@ function renderEnvScript() {
       'ENTRA_API_SCOPE',
       'AAD_API_SCOPE'
     ),
+    VITE_FORCE_LOCAL_AUTH: pickFirstEnv(
+      'VITE_FORCE_LOCAL_AUTH',
+      'FORCE_LOCAL_AUTH',
+      'AUTH_BYPASS'
+    ),
   };
 
   return `window.__APP_CONFIG__ = ${JSON.stringify(config)};`;

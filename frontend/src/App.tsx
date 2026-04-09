@@ -87,6 +87,7 @@ async function getAccessToken(
 
 function App() {
   const microsoftConfigured = Boolean(env.azureClientId && env.azureTenantId);
+  const authWithMicrosoftEnabled = microsoftConfigured && !env.forceLocalAuth;
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const [currentPath, setCurrentPath] = useState(() => (window.location.pathname || "/").toLowerCase());
@@ -227,7 +228,7 @@ function App() {
       const healthResult = await getHealth();
       setHealth(healthResult);
 
-      if (microsoftConfigured) {
+      if (authWithMicrosoftEnabled) {
         if (!isAuthenticated || !accounts[0]) {
           setAuthUser(null);
           if (currentPath !== "/login") {
@@ -397,7 +398,7 @@ function App() {
     setApiAccessToken(null);
     setAuthUser(null);
     goTo("/login", true);
-    if (microsoftConfigured) {
+    if (authWithMicrosoftEnabled) {
       await instance.logoutRedirect({
         postLogoutRedirectUri: `${window.location.origin}/login`,
       });
@@ -423,7 +424,7 @@ function App() {
           <div className="logo-slot">Logo Empresa</div>
           <h1>App Gestion Demo</h1>
           {error && <p className="error-banner">{error}</p>}
-          {microsoftConfigured ? (
+          {authWithMicrosoftEnabled ? (
             <>
               {isAuthenticated ? (
                 <>
@@ -449,10 +450,7 @@ function App() {
               )}
             </>
           ) : (
-            <p>
-              Falta configurar autenticación Microsoft en frontend (VITE_AZURE_TENANT_ID y
-              VITE_AZURE_CLIENT_ID).
-            </p>
+            <p>Modo demo activo sin login Microsoft.</p>
           )}
         </section>
       </main>
