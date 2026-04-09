@@ -7,6 +7,10 @@ export type HealthResponse = {
 };
 
 export async function getHealth(): Promise<HealthResponse> {
+  if (!env.apiUrl) {
+    throw new Error("Missing VITE_API_URL in frontend build configuration");
+  }
+
   const response = await fetch(`${env.apiUrl}/health`);
 
   if (!response.ok) {

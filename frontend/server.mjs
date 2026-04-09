@@ -32,8 +32,9 @@ if (!existsSync(indexFile)) {
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
   const requestedPath = urlPath === '/' ? '/index.html' : urlPath;
+  const relativePath = requestedPath.replace(/^\/+/, '');
 
-  let filePath = path.normalize(path.join(distDir, requestedPath));
+  let filePath = path.normalize(path.join(distDir, relativePath));
   if (!filePath.startsWith(distDir)) {
     res.writeHead(403);
     res.end('Forbidden');
