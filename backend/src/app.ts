@@ -28,6 +28,8 @@ export async function buildApp() {
       const isAllowed = allowedOrigins.includes(normalizeOrigin(origin));
       callback(null, isAllowed);
     },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   });
 
