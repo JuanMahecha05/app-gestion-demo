@@ -1,17 +1,16 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px,
-    rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --text: #5f4f44;
+  --text-soft: #725a48;
+  --text-strong: #2c1b11;
+  --bg: #ffffff;
+  --sans: "Manrope", "Segoe UI", sans-serif;
+  --display: "Space Grotesk", "Manrope", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   font: 16px/145% var(--sans);
-  letter-spacing: 0.18px;
+  letter-spacing: 0.14px;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -31,8 +30,9 @@ body {
 }
 
 h1 {
-  font-weight: 600;
-  color: var(--text-h);
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--text-strong);
   margin: 0;
 }
 
@@ -43,10 +43,10 @@ p {
 code {
   font-family: var(--mono);
   display: inline-flex;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 14px;
   line-height: 135%;
   padding: 4px 8px;
-  color: var(--text-h);
-  background: var(--code-bg);
+  color: #7c2d12;
+  background: #fff3e8;
 }

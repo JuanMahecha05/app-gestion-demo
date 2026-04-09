@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { ZodError } from "zod";
 import { env } from "./config/env.js";
 import { registerRoutes } from "./routes/index.js";
 
@@ -28,6 +29,25 @@ export async function buildApp() {
       callback(null, isAllowed);
     },
     credentials: true,
+  });
+
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ZodError) {
+      return reply.status(400).send({
+        message: "Validation error",
+        issues: error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    app.log.error(error);
+    return reply.status(500).send({ message: "Internal server error" });
+  });
+
+  app.setNotFoundHandler((_request, reply) => {
+    return reply.status(404).send({ message: "Route not found" });
   });
 
   await registerRoutes(app);

@@ -4,18 +4,20 @@
   "description": "Backend API for App Gestion demo (Fastify + Prisma + PostgreSQL)",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run smoke",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "npm run start:api",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
+    "prisma:seed": "node prisma/seed.mjs",
     "prisma:studio": "prisma studio",
     "prisma:deploy": "prisma migrate deploy",
     "start:api": "node dist/server.js",
-    "railway:start": "npm run start:api",
-    "railway:migrate": "npm run prisma:deploy"
+    "railway:start": "npm run prisma:generate && npm run prisma:push && npm run start:api",
+    "railway:migrate": "npm run prisma:deploy",
+    "smoke": "node scripts/smoke.mjs"
   },
   "keywords": [],
   "author": "",
