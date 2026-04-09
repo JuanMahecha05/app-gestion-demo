@@ -40,7 +40,7 @@ function resolveEmail(payload: MicrosoftClaims) {
 }
 
 export async function authenticate(request: FastifyRequest, reply: FastifyReply) {
-  if (!env.AUTH_ENABLED) {
+  if (!env.AUTH_ENABLED || env.AUTH_DEMO_BYPASS) {
     request.authUser = {
       id: "local-admin",
       email: env.ADMIN_EMAIL.toLowerCase(),
