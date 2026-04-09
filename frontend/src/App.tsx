@@ -82,6 +82,7 @@ function App() {
   const microsoftConfigured = Boolean(env.azureClientId && env.azureTenantId);
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
+  const [currentPath, setCurrentPath] = useState(() => (window.location.pathname || "/").toLowerCase());
 
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -152,6 +153,27 @@ function App() {
 
   const permissions = authUser?.permissions ?? [];
 
+  function goTo(path: "/login" | "/home", replace = false) {
+    if (replace) {
+      window.history.replaceState({}, "", path);
+    } else {
+      window.history.pushState({}, "", path);
+    }
+    setCurrentPath(path);
+  }
+
+  useEffect(() => {
+    const onPopState = () => setCurrentPath((window.location.pathname || "/").toLowerCase());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (currentPath !== "/login" && currentPath !== "/home") {
+      goTo(authUser ? "/home" : "/login", true);
+    }
+  }, [currentPath, authUser]);
+
   const tabs = useMemo(
     () => allTabs.filter((tab) => !tab.permission || permissions.includes(tab.permission)),
     [permissions],
@@ -201,6 +223,9 @@ function App() {
       if (microsoftConfigured) {
         if (!isAuthenticated || !accounts[0]) {
           setAuthUser(null);
+          if (currentPath !== "/login") {
+            goTo("/login", true);
+          }
           setLoading(false);
           return;
         }
@@ -213,6 +238,9 @@ function App() {
 
       const me = await getMe();
       setAuthUser(me);
+      if (currentPath !== "/home") {
+        goTo("/home", true);
+      }
       await loadDomainData(me);
     } catch (bootstrapError) {
       setAuthUser(null);
@@ -225,7 +253,7 @@ function App() {
   useEffect(() => {
     void bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [microsoftConfigured, isAuthenticated, accounts.length]);
+  }, [microsoftConfigured, isAuthenticated, accounts.length, currentPath]);
 
   async function submitProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -346,14 +374,23 @@ function App() {
   }
 
   async function loginWithMicrosoft() {
-    await instance.loginRedirect(loginRequest);
+    if (currentPath !== "/login") {
+      goTo("/login", true);
+    }
+    await instance.loginRedirect({
+      ...loginRequest,
+      redirectStartPage: `${window.location.origin}/home`,
+    });
   }
 
   async function logout() {
     setApiAccessToken(null);
     setAuthUser(null);
+    goTo("/login", true);
     if (microsoftConfigured) {
-      await instance.logoutPopup();
+      await instance.logoutRedirect({
+        postLogoutRedirectUri: `${window.location.origin}/login`,
+      });
     }
   }
 
