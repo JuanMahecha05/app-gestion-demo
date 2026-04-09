@@ -3,17 +3,16 @@
 ## Stack
 - Fastify
 - Prisma
-- PostgreSQL
+- PostgreSQL (Railway)
 
-## Quick start
-1. Start PostgreSQL:
-   - `docker compose up -d`
-2. Install dependencies:
+## Local quick start
+1. Install dependencies:
    - `npm install`
+2. Set `DATABASE_URL` in `.env` with a reachable Postgres URL
 3. Generate Prisma client:
    - `npm run prisma:generate`
-4. Run first migration:
-   - `npm run prisma:migrate -- --name init`
+4. Sync schema to database:
+   - `npm run prisma:push`
 5. Start API:
    - `npm run dev`
 
@@ -31,15 +30,9 @@
 
 `railway:start` generates Prisma client and applies schema with `prisma db push` before starting the API.
 
-## Railway deploy (Frontend)
-1. Root directory:
-   - `frontend`
-2. Build command:
-   - `npm run build`
-3. Variable:
-   - `VITE_API_URL=https://<backend-domain>`
-
-After updating `VITE_API_URL`, redeploy frontend so Vite rebuilds with the new API URL.
+## Notes
+- The repository deploys backend from root using `railway.toml` + `Dockerfile`.
+- Frontend deploy is a separate Railway service using root directory `frontend`.
 
 ## Available scripts
 - `npm run dev`
