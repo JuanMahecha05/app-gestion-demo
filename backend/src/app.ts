@@ -1,0 +1,58 @@
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import { ZodError } from "zod";
+import { env } from "./config/env.js";
+import { registerRoutes } from "./routes/index.js";
+
+function normalizeOrigin(value: string) {
+  return value.trim().replace(/\/$/, "");
+}
+
+export async function buildApp() {
+  const app = Fastify({
+    logger: env.NODE_ENV !== "test",
+  });
+
+  const allowAllOrigins = env.CORS_ORIGIN.trim() === "*";
+  const allowedOrigins = allowAllOrigins
+    ? []
+    : env.CORS_ORIGIN.split(",").map(normalizeOrigin).filter(Boolean);
+
+  await app.register(cors, {
+    origin: (origin, callback) => {
+      if (allowAllOrigins || !origin) {
+        callback(null, true);
+        return;
+      }
+
+      const isAllowed = allowedOrigins.includes(normalizeOrigin(origin));
+      callback(null, isAllowed);
+    },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  });
+
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ZodError) {
+      return reply.status(400).send({
+        message: "Validation error",
+        issues: error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    app.log.error(error);
+    return reply.status(500).send({ message: "Internal server error" });
+  });
+
+  app.setNotFoundHandler((_request, reply) => {
+    return reply.status(404).send({ message: "Route not found" });
+  });
+
+  await registerRoutes(app);
+
+  return app;
+}
