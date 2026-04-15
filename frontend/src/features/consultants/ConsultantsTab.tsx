@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import {
   createConsultant,
@@ -60,6 +60,26 @@ export function ConsultantsTab({
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Consultant | null>(null);
+  const [fxRates, setFxRates] = useState<Record<string, number>>({});
+  const [fxLoading, setFxLoading] = useState(false);
+
+  useEffect(() => {
+    setFxLoading(true);
+    fetch("https://open.er-api.com/v6/latest/USD")
+      .then((res) => res.json())
+      .then((data: { rates: Record<string, number> }) => {
+        setFxRates(data.rates);
+      })
+      .catch(() => { /* fxRates queda vacío, la columna mostrará "—" */ })
+      .finally(() => setFxLoading(false));
+  }, []);
+
+  function toUSD(amount: number, currency: string): string {
+    if (currency === "USD") return money(amount, "USD");
+    const rate = fxRates[currency];
+    if (!rate) return "—";
+    return money(amount / rate, "USD");
+  }
 
   function handleExport() {
     downloadCsv(
@@ -192,6 +212,7 @@ export function ConsultantsTab({
                     <th>Nombre</th>
                     <th>Rol</th>
                     <th>Tarifa</th>
+                    <th>Tarifa en USD</th>
                     <th>Estado</th>
                     {canWrite && <th>Acciones</th>}
                   </tr>
@@ -202,6 +223,7 @@ export function ConsultantsTab({
                       <td>{c.fullName}</td>
                       <td>{c.role}</td>
                       <td>{money(numberish(c.hourlyRate), c.rateCurrency || "USD")}</td>
+                      <td>{fxLoading ? "…" : toUSD(numberish(c.hourlyRate), c.rateCurrency || "USD")}</td>
                       <td>
                         <span className={`pill ${c.active ? "ok" : "neutral"}`}>{c.active ? "Activo" : "Inactivo"}</span>
                       </td>

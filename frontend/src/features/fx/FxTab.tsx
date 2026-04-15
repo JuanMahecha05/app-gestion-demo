@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import { deleteFxRate, listFxHistory, upsertFxRate, type FxConfig, type FxRateHistory } from "../../services/api";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -7,6 +7,18 @@ import { formatDate } from "../../utils/formatDate";
 const currencyOptions = ["COP", "USD", "EUR", "MXN", "PEN", "CLP"];
 
 const emptyForm = { baseCode: "USD", quoteCode: "COP", rate: "" };
+
+async function fetchMarketRate(base: string, quote: string): Promise<number | null> {
+  if (base === quote) return 1;
+  try {
+    const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${base}`);
+    if (!res.ok) return null;
+    const data = await res.json() as { rates: Record<string, number> };
+    return data.rates[quote] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function FxTab({
   fxConfigs,
@@ -23,10 +35,21 @@ export function FxTab({
 }) {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [fetchingRate, setFetchingRate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<FxConfig | null>(null);
   const [historyFilter, setHistoryFilter] = useState({ baseCode: "", quoteCode: "", from: "", to: "" });
   const [history, setHistory] = useState<FxRateHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    setFetchingRate(true);
+    fetchMarketRate(form.baseCode, form.quoteCode).then((rate: number | null) => {
+      if (rate !== null) {
+        setForm((p) => ({ ...p, rate: String(rate) }));
+      }
+      setFetchingRate(false);
+    });
+  }, [form.baseCode, form.quoteCode]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -82,21 +105,29 @@ export function FxTab({
             <select value={form.quoteCode} onChange={(e) => setForm((p) => ({ ...p, quoteCode: e.target.value }))}>
               {currencyOptions.map((c) => <option key={`fx-quote-${c}`} value={c}>{`Destino: ${c}`}</option>)}
             </select>
-            <input
-              type="number"
-              step="0.000001"
-              min="0.000001"
-              placeholder={`1 ${form.baseCode} = ? ${form.quoteCode}`}
-              value={form.rate}
-              onChange={(e) => setForm((p) => ({ ...p, rate: e.target.value }))}
-              required
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type="number"
+                step="0.000001"
+                min="0.000001"
+                placeholder={fetchingRate ? "Consultando tasa…" : `1 ${form.baseCode} = ? ${form.quoteCode}`}
+                value={form.rate}
+                readOnly
+                required
+                style={{ width: "100%", cursor: "default", background: "var(--color-surface-alt, #f5f5f5)" }}
+              />
+              {fetchingRate && (
+                <span style={{ position: "absolute", right: "0.6rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.75rem", color: "var(--color-muted, #888)" }}>
+                  ⟳
+                </span>
+              )}
+            </div>
             <button type="submit" disabled={submitting}>{submitting ? "Guardando…" : "Guardar tasa"}</button>
           </form>
         ) : (
           <p className="fx-note">Solo ADMIN y FINANCE pueden modificar tasas.</p>
         )}
-        <p className="fx-note">La tasa indica cuántas unidades de la moneda destino equivalen a 1 unidad de la moneda base. Ej: 1 USD = 4200 COP</p>
+        <p className="fx-note">La tasa se obtiene automáticamente de Frankfurter según las monedas seleccionadas. Ej: 1 USD = 4200 COP</p>
       </article>
 
       <article className="card">
