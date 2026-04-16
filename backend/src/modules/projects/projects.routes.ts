@@ -260,7 +260,8 @@ export async function projectsRoutes(app: FastifyInstance) {
           hourlyRate: f.hourlyRate ? Number(f.hourlyRate) : null,
           sellRate: f.sellRate ? Number(f.sellRate) : null,
           currency: f.currency,
-          period: f.period,
+          startDate: f.startDate,
+          endDate: f.endDate,
           consultant: {
             hourlyRate: f.consultant.hourlyRate ? Number(f.consultant.hourlyRate) : null,
             rateCurrency: f.consultant.rateCurrency,

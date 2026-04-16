@@ -139,7 +139,7 @@ describe("calculateProfitability", () => {
       {
         consultantId: "c1",
         hoursProjected: 120, hourlyRate: 65, sellRate: 100, currency: "USD",
-        period: "2026-Q2", consultant: { hourlyRate: 65, rateCurrency: "USD" },
+        startDate: "2026-04-01", endDate: "2026-06-30", consultant: { hourlyRate: 65, rateCurrency: "USD" },
       },
     ],
     fxConfigs: [],
@@ -265,9 +265,9 @@ describe("calculateProfitability", () => {
       ...baseInput,
       approvedTimeEntries: [],
       forecasts: [
-        { consultantId: "c1", hoursProjected: 50, hourlyRate: 65, sellRate: 100, currency: "USD", period: "2026-Q1", consultant: { hourlyRate: 65, rateCurrency: "USD" } },
-        { consultantId: "c2", hoursProjected: 80, hourlyRate: 65, sellRate: 100, currency: "USD", period: "2026-Q2", consultant: { hourlyRate: 65, rateCurrency: "USD" } },
-        { consultantId: "c3", hoursProjected: 60, hourlyRate: 65, sellRate: 100, currency: "USD", period: "2026-Q3", consultant: { hourlyRate: 65, rateCurrency: "USD" } },
+        { consultantId: "c1", hoursProjected: 50, hourlyRate: 65, sellRate: 100, currency: "USD", startDate: "2026-01-01", endDate: "2026-03-31", consultant: { hourlyRate: 65, rateCurrency: "USD" } },
+        { consultantId: "c2", hoursProjected: 80, hourlyRate: 65, sellRate: 100, currency: "USD", startDate: "2026-04-01", endDate: "2026-06-30", consultant: { hourlyRate: 65, rateCurrency: "USD" } },
+        { consultantId: "c3", hoursProjected: 60, hourlyRate: 65, sellRate: 100, currency: "USD", startDate: "2026-07-01", endDate: "2026-09-30", consultant: { hourlyRate: 65, rateCurrency: "USD" } },
       ],
     });
     // 50+80+60 = 190h * 65 = 12350
