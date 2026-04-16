@@ -104,11 +104,12 @@ export async function consultantsRoutes(app: FastifyInstance) {
 
     const linkedTimeEntries = await prisma.timeEntry.count({ where: { consultantId: id } });
     const linkedForecasts = await prisma.forecast.count({ where: { consultantId: id } });
+    const linkedAssignments = await prisma.assignment.count({ where: { consultantId: id } });
 
-    if (linkedTimeEntries > 0 || linkedForecasts > 0) {
+    if (linkedTimeEntries > 0 || linkedForecasts > 0 || linkedAssignments > 0) {
       return reply
         .status(409)
-        .send({ message: "Cannot delete consultant with related time entries or forecasts" });
+        .send({ message: "Cannot delete consultant with related time entries, forecasts or assignments" });
     }
 
       await prisma.consultant.delete({ where: { id } });
