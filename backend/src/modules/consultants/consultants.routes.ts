@@ -112,8 +112,16 @@ export async function consultantsRoutes(app: FastifyInstance) {
         .send({ message: "Cannot delete consultant with related time entries, forecasts or assignments" });
     }
 
+    try {
       await prisma.consultant.delete({ where: { id } });
       return reply.status(204).send();
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === "P2003" || code === "P2014") {
+        return reply.status(409).send({ message: "Cannot delete consultant: it has related records" });
+      }
+      throw err;
+    }
     },
   );
 }
