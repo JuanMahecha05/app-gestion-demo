@@ -35,6 +35,17 @@ import { ToastContainer } from "./components/Toast";
 import type { TabId } from "./types";
 import "./App.css";
 
+// ── Logo ─────────────────────────────────────────────────────────────────────
+
+function PyramidLogo({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 90" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Logo">
+      <polygon points="50,0 0,90 50,90" fill="#E8A020" />
+      <polygon points="50,0 50,90 100,90" fill="#7A3C10" />
+    </svg>
+  );
+}
+
 // ── Sidebar config ──────────────────────────────────────────────────────────
 
 const SIDEBAR_GROUPS: {
@@ -310,7 +321,7 @@ function App() {
       return (
         <main className="auth-shell">
           <section className="auth-card">
-            <div className="logo-slot">Logo</div>
+            <div className="logo-slot"><PyramidLogo /></div>
             <h1>App Gestion Demo</h1>
             <p>Inicializando sesión…</p>
           </section>
@@ -320,7 +331,7 @@ function App() {
     return (
       <main className="auth-shell">
         <section className="auth-card">
-          <div className="logo-slot">Logo</div>
+          <div className="logo-slot"><PyramidLogo /></div>
           <h1>App Gestion Demo</h1>
           {error && <p className="error-banner">{error}</p>}
           {authWithMicrosoftEnabled ? (
@@ -360,7 +371,7 @@ function App() {
       {/* Header */}
       <header className="hero">
         <div className="hero-left">
-          <div className="logo-slot">Logo</div>
+          <div className="logo-slot"><PyramidLogo /></div>
           <div>
             <h1>App Gestion Demo</h1>
             <p>Gestión integral de proyectos, horas, gastos y proyecciones</p>
