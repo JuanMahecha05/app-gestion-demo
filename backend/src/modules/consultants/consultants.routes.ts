@@ -164,4 +164,43 @@ export async function consultantsRoutes(app: FastifyInstance) {
       }
     },
   );
+  app.delete(
+    "/by-name",
+    {
+      preHandler: [authenticate, authorize([AppRole.ADMIN, AppRole.PM])],
+    },
+    async (request, reply) => {
+      const { name } = z.object({ name: z.string().trim().min(1) }).parse(request.query);
+
+      const existing = await prisma.consultant.findFirst({
+        where: { fullName: { equals: name, mode: "insensitive" } },
+      });
+      if (!existing) {
+        return reply.status(404).send({ message: "Consultant not found" });
+      }
+
+      const { id } = existing;
+
+      const linkedTimeEntries = await prisma.timeEntry.count({ where: { consultantId: id } });
+      const linkedForecasts = await prisma.forecast.count({ where: { consultantId: id } });
+      const linkedAssignments = await prisma.assignment.count({ where: { consultantId: id } });
+
+      if (linkedTimeEntries > 0 || linkedForecasts > 0 || linkedAssignments > 0) {
+        return reply
+          .status(409)
+          .send({ message: "Cannot delete consultant with related time entries, forecasts or assignments" });
+      }
+
+      try {
+        await prisma.consultant.delete({ where: { id } });
+        return reply.status(204).send();
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code;
+        if (code === "P2003" || code === "P2014") {
+          return reply.status(409).send({ message: "Cannot delete consultant: it has related records" });
+        }
+        throw err;
+      }
+    },
+  );
 }
